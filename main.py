@@ -1,7 +1,3 @@
-"""
-Main application file for To-Do List Management System
-Day 2: Basic structure and window setup
-"""
 import tkinter as tk
 from tkinter import ttk
 
