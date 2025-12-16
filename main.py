@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.storage import TaskStorage
-from src.gui_components import LoginWindow
+from src.gui_components import LoginWindow, TaskManagerWindow
 
 
 class ToDoApp:
@@ -41,8 +41,28 @@ class ToDoApp:
     def on_login_success(self, username):
         """Called when user logs in"""
         self.current_user = username
-        print(f"User logged in: {username}")
-        # TODO: Show main window
+        self.login_window.destroy()
+        self.show_task_manager()
+    
+    def show_task_manager(self):
+        """Show task manager"""
+        self.root.geometry("1000x700")
+        self.root.resizable(True, True)
+        self.task_manager = TaskManagerWindow(
+            self.root, 
+            self.current_user, 
+            self.storage, 
+            self.colors,
+            self.on_logout
+        )
+    
+    def on_logout(self):
+        """Handle logout"""
+        self.task_manager.destroy()
+        self.current_user = None
+        self.root.geometry("400x500")
+        self.root.resizable(False, False)
+        self.show_login()
     
     def run(self):
         """Start the application"""

@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
+from tkcalendar import DateEntry
 from storage import Task
 
 
@@ -132,7 +133,7 @@ class LoginWindow:
 
 class TaskManagerWindow:
     """
-    Day 5: Basic Task Manager with Category Support
+    Day 6: Task Manager with Add Task (with due dates) and View Tasks with Status
     """
     def __init__(self, parent, username, storage, colors, on_logout):
         self.parent = parent
@@ -141,31 +142,67 @@ class TaskManagerWindow:
         self.colors = colors
         self.on_logout = on_logout
         self.tasks = []
+        self.filtered_tasks = []
+        self.current_filter = "All"
         
         # Load tasks
         self.load_tasks()
         
         # Create UI
         self.create_ui()
+        
+        # Display tasks
+        self.refresh_task_list()
     
     def create_ui(self):
-        """Create the basic UI with categories"""
+        """Create the UI for Day 6"""
+        # Main container
         main_frame = tk.Frame(self.parent, bg=self.colors['light'])
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Header
-        header = tk.Frame(main_frame, bg=self.colors['primary'], height=80)
+        self.create_header(main_frame)
+        
+        # Content area
+        content_frame = tk.Frame(main_frame, bg=self.colors['light'])
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Left panel - Task Form
+        self.create_task_form(content_frame)
+        
+        # Right panel - Task List
+        self.create_task_list(content_frame)
+        
+        # Bottom - Statistics
+        self.create_statistics(main_frame)
+    
+    def create_header(self, parent):
+        """Create header"""
+        header = tk.Frame(parent, bg=self.colors['primary'], height=80)
         header.pack(fill=tk.X)
+        header.pack_propagate(False)
         
         # User info
-        user_label = tk.Label(
-            header,
+        user_frame = tk.Frame(header, bg=self.colors['primary'])
+        user_frame.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        greeting = tk.Label(
+            user_frame,
             text=f"Welcome, {self.username}! 👋",
             font=("Helvetica", 16, "bold"),
             bg=self.colors['primary'],
             fg=self.colors['white']
         )
-        user_label.pack(side=tk.LEFT, padx=20, pady=20)
+        greeting.pack(anchor=tk.W)
+        
+        date_label = tk.Label(
+            user_frame,
+            text=datetime.now().strftime("%A, %B %d, %Y"),
+            font=("Helvetica", 10),
+            bg=self.colors['primary'],
+            fg=self.colors['light']
+        )
+        date_label.pack(anchor=tk.W)
         
         # Logout button
         logout_btn = tk.Button(
@@ -179,17 +216,22 @@ class TaskManagerWindow:
             command=self.on_logout
         )
         logout_btn.pack(side=tk.RIGHT, padx=20, pady=20)
+    
+    def create_task_form(self, parent):
+        """Create task input form with due date picker"""
+        form_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
+        form_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 5))
+        form_frame.config(width=300)
         
-        # Task form with categories
-        form_frame = tk.Frame(main_frame, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
-        form_frame.pack(pady=20, padx=20, fill=tk.X)
-        
-        tk.Label(
-            form_frame, 
-            text="✏️ Add New Task", 
+        # Form title
+        title = tk.Label(
+            form_frame,
+            text="✏️ Task Details",
             font=("Helvetica", 14, "bold"),
-            bg=self.colors['white']
-        ).pack(pady=10)
+            bg=self.colors['white'],
+            fg=self.colors['dark']
+        )
+        title.pack(pady=(15, 20), padx=15, anchor=tk.W)
         
         # Task Name
         tk.Label(
@@ -197,28 +239,10 @@ class TaskManagerWindow:
             text="Task Name:", 
             font=("Helvetica", 10, "bold"),
             bg=self.colors['white']
-        ).pack(anchor=tk.W, padx=20, pady=(5, 2))
+        ).pack(anchor=tk.W, padx=15, pady=(5, 2))
         
-        self.task_entry = tk.Entry(form_frame, font=("Helvetica", 12))
-        self.task_entry.pack(fill=tk.X, padx=20, pady=(0, 10), ipady=5)
-        
-        # Category (NEW for Day 5!)
-        tk.Label(
-            form_frame, 
-            text="Category:", 
-            font=("Helvetica", 10, "bold"),
-            bg=self.colors['white']
-        ).pack(anchor=tk.W, padx=20, pady=(5, 2))
-        
-        self.category_var = tk.StringVar(value="Personal")
-        category_combo = ttk.Combobox(
-            form_frame,
-            textvariable=self.category_var,
-            values=["Personal", "Work", "Study", "Health", "Shopping", "Other"],
-            state="readonly",
-            font=("Helvetica", 10)
-        )
-        category_combo.pack(fill=tk.X, padx=20, pady=(0, 10), ipady=5)
+        self.task_name_entry = tk.Entry(form_frame, font=("Helvetica", 10), relief=tk.SOLID, borderwidth=1)
+        self.task_name_entry.pack(fill=tk.X, padx=15, pady=(0, 10), ipady=5)
         
         # Priority
         tk.Label(
@@ -226,11 +250,11 @@ class TaskManagerWindow:
             text="Priority:", 
             font=("Helvetica", 10, "bold"),
             bg=self.colors['white']
-        ).pack(anchor=tk.W, padx=20, pady=(5, 2))
+        ).pack(anchor=tk.W, padx=15, pady=(5, 2))
         
         self.priority_var = tk.StringVar(value="Low")
         priority_frame = tk.Frame(form_frame, bg=self.colors['white'])
-        priority_frame.pack(fill=tk.X, padx=20, pady=(0, 10))
+        priority_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
         
         for priority in ["Low", "Medium", "High"]:
             rb = tk.Radiobutton(
@@ -243,81 +267,257 @@ class TaskManagerWindow:
             )
             rb.pack(side=tk.LEFT, padx=5)
         
+        # Due Date (NEW for Day 6!)
+        tk.Label(
+            form_frame, 
+            text="Due Date:", 
+            font=("Helvetica", 10, "bold"),
+            bg=self.colors['white']
+        ).pack(anchor=tk.W, padx=15, pady=(5, 2))
+        
+        self.due_date_entry = DateEntry(
+            form_frame,
+            font=("Helvetica", 10),
+            borderwidth=1,
+            date_pattern='yyyy-mm-dd',
+            mindate=datetime.now()
+        )
+        self.due_date_entry.pack(fill=tk.X, padx=15, pady=(0, 10), ipady=5)
+        
+        # Category
+        tk.Label(
+            form_frame, 
+            text="Category:", 
+            font=("Helvetica", 10, "bold"),
+            bg=self.colors['white']
+        ).pack(anchor=tk.W, padx=15, pady=(5, 2))
+        
+        self.category_var = tk.StringVar(value="Personal")
+        category_combo = ttk.Combobox(
+            form_frame,
+            textvariable=self.category_var,
+            values=["Personal", "Work", "Study", "Health", "Shopping", "Other"],
+            state="readonly",
+            font=("Helvetica", 10)
+        )
+        category_combo.pack(fill=tk.X, padx=15, pady=(0, 20), ipady=5)
+        
         # Add button
         add_btn = tk.Button(
             form_frame,
             text="➕ Add Task",
-            font=("Helvetica", 11, "bold"),
+            font=("Helvetica", 10, "bold"),
             bg=self.colors['success'],
             fg=self.colors['white'],
             relief=tk.FLAT,
             cursor="hand2",
             command=self.add_task
         )
-        add_btn.pack(pady=15, padx=20, fill=tk.X, ipady=8)
+        add_btn.pack(fill=tk.X, padx=15, pady=(0, 15), ipady=8)
+    
+    def create_task_list(self, parent):
+        """Create task list panel with status display"""
+        list_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
+        list_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
-        # Task list
-        list_frame = tk.Frame(main_frame, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
-        list_frame.pack(pady=(0, 20), padx=20, fill=tk.BOTH, expand=True)
+        # Header with filters
+        header_frame = tk.Frame(list_frame, bg=self.colors['white'])
+        header_frame.pack(fill=tk.X, padx=15, pady=15)
         
         tk.Label(
-            list_frame,
+            header_frame,
             text="📋 My Tasks",
             font=("Helvetica", 14, "bold"),
-            bg=self.colors['white']
-        ).pack(pady=10)
+            bg=self.colors['white'],
+            fg=self.colors['dark']
+        ).pack(side=tk.LEFT)
         
-        # Listbox to show tasks
-        self.task_listbox = tk.Listbox(
-            list_frame, 
-            height=10,
-            font=("Helvetica", 10)
-        )
-        self.task_listbox.pack(pady=10, padx=20, fill=tk.BOTH, expand=True)
+        # Filter buttons (NEW for Day 6 - Show tasks by status!)
+        filter_frame = tk.Frame(header_frame, bg=self.colors['white'])
+        filter_frame.pack(side=tk.RIGHT)
+        
+        filters = ["All", "Pending", "Completed"]
+        for filter_name in filters:
+            btn = tk.Button(
+                filter_frame,
+                text=filter_name,
+                font=("Helvetica", 9),
+                bg=self.colors['light'] if filter_name != "All" else self.colors['secondary'],
+                fg=self.colors['dark'] if filter_name != "All" else self.colors['white'],
+                relief=tk.FLAT,
+                cursor="hand2",
+                command=lambda f=filter_name: self.apply_filter(f)
+            )
+            btn.pack(side=tk.LEFT, padx=2)
+        
+        # Treeview for tasks
+        tree_frame = tk.Frame(list_frame, bg=self.colors['white'])
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 10))
         
         # Scrollbar
-        scrollbar = tk.Scrollbar(self.task_listbox)
+        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical")
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.task_listbox.config(yscrollcommand=scrollbar.set)
-        scrollbar.config(command=self.task_listbox.yview)
         
-        # Refresh the list
-        self.refresh_list()
+        # Treeview
+        self.task_tree = ttk.Treeview(
+            tree_frame,
+            columns=("Name", "Priority", "Due Date", "Category", "Status"),
+            show="headings",
+            yscrollcommand=scrollbar.set,
+            height=12
+        )
+        
+        scrollbar.config(command=self.task_tree.yview)
+        
+        # Define columns
+        self.task_tree.heading("Name", text="Task Name")
+        self.task_tree.heading("Priority", text="Priority")
+        self.task_tree.heading("Due Date", text="Due Date")
+        self.task_tree.heading("Category", text="Category")
+        self.task_tree.heading("Status", text="Status")
+        
+        self.task_tree.column("Name", width=200)
+        self.task_tree.column("Priority", width=80)
+        self.task_tree.column("Due Date", width=100)
+        self.task_tree.column("Category", width=100)
+        self.task_tree.column("Status", width=100)
+        
+        self.task_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Configure row colors for status
+        self.task_tree.tag_configure('completed', background='#d5f4e6')
+        self.task_tree.tag_configure('pending', background='#ffffff')
+        self.task_tree.tag_configure('high', foreground='#e74c3c')
+        self.task_tree.tag_configure('medium', foreground='#f39c12')
+    
+    def create_statistics(self, parent):
+        """Create statistics panel"""
+        stats_frame = tk.Frame(parent, bg=self.colors['dark'], height=60)
+        stats_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        stats_frame.pack_propagate(False)
+        
+        self.total_label = tk.Label(
+            stats_frame,
+            text="Total: 0",
+            font=("Helvetica", 11, "bold"),
+            bg=self.colors['dark'],
+            fg=self.colors['white']
+        )
+        self.total_label.pack(side=tk.LEFT, padx=20, pady=15)
+        
+        self.pending_label = tk.Label(
+            stats_frame,
+            text="Pending: 0",
+            font=("Helvetica", 11, "bold"),
+            bg=self.colors['dark'],
+            fg=self.colors['warning']
+        )
+        self.pending_label.pack(side=tk.LEFT, padx=20, pady=15)
+        
+        self.completed_label = tk.Label(
+            stats_frame,
+            text="Completed: 0",
+            font=("Helvetica", 11, "bold"),
+            bg=self.colors['dark'],
+            fg=self.colors['success']
+        )
+        self.completed_label.pack(side=tk.LEFT, padx=20, pady=15)
     
     def load_tasks(self):
-        """Load tasks"""
+        """Load tasks from storage"""
         task_dicts = self.storage.load_tasks(self.username)
-        self.tasks = [Task.from_dict(td) for td in task_dicts]
+        self.tasks = [Task.from_dict(task_dict) for task_dict in task_dicts]
+        self.filtered_tasks = self.tasks.copy()
     
     def save_tasks(self):
-        """Save tasks"""
-        task_dicts = [t.to_dict() for t in self.tasks]
+        """Save tasks to storage"""
+        task_dicts = [task.to_dict() for task in self.tasks]
         self.storage.save_tasks(self.username, task_dicts)
     
     def add_task(self):
-        """Add a task with category"""
-        name = self.task_entry.get().strip()
-        if name:
-            category = self.category_var.get()
-            priority = self.priority_var.get()
+        """Add a new task with all details"""
+        try:
+            name = self.task_name_entry.get().strip()
+            if not name:
+                messagebox.showerror("Error", "Please enter a task name")
+                return
             
-            task = Task(name=name, priority=priority, category=category)
+            priority = self.priority_var.get()
+            due_date = str(self.due_date_entry.get_date())
+            category = self.category_var.get()
+            
+            task = Task(name, priority, due_date, category)
             self.tasks.append(task)
             self.save_tasks()
-            self.refresh_list()
-            self.task_entry.delete(0, tk.END)
-            messagebox.showinfo("Success", f"Task added to {category}!")
-        else:
-            messagebox.showerror("Error", "Please enter a task name")
+            self.apply_filter(self.current_filter)
+            self.clear_form()
+            messagebox.showinfo("Success", "Task added successfully!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to add task: {str(e)}")
     
-    def refresh_list(self):
-        """Refresh task list"""
-        self.task_listbox.delete(0, tk.END)
-        for task in self.tasks:
-            display_text = f"{task.name} | {task.category} | {task.priority} | {task.status}"
-            self.task_listbox.insert(tk.END, display_text)
+    def refresh_task_list(self):
+        """Refresh the task list display"""
+        # Clear tree
+        for item in self.task_tree.get_children():
+            self.task_tree.delete(item)
+        
+        # Add filtered tasks
+        for task in self.filtered_tasks:
+            tags = []
+            
+            # Status tag
+            if task.status == "Completed":
+                tags.append('completed')
+            else:
+                tags.append('pending')
+            
+            # Priority tags
+            if task.priority == "High":
+                tags.append('high')
+            elif task.priority == "Medium":
+                tags.append('medium')
+            
+            self.task_tree.insert(
+                "",
+                tk.END,
+                values=(task.name, task.priority, task.due_date, task.category, task.status),
+                tags=tags
+            )
+        
+        # Update statistics
+        self.update_statistics()
+    
+    def update_statistics(self):
+        """Update statistics display"""
+        total = len(self.tasks)
+        pending = sum(1 for task in self.tasks if task.status == "Pending")
+        completed = sum(1 for task in self.tasks if task.status == "Completed")
+        
+        self.total_label.config(text=f"Total: {total}")
+        self.pending_label.config(text=f"Pending: {pending}")
+        self.completed_label.config(text=f"Completed: {completed}")
+    
+    def apply_filter(self, filter_name):
+        """Apply filter to task list"""
+        self.current_filter = filter_name
+        
+        if filter_name == "All":
+            self.filtered_tasks = self.tasks.copy()
+        elif filter_name == "Pending":
+            self.filtered_tasks = [task for task in self.tasks if task.status == "Pending"]
+        elif filter_name == "Completed":
+            self.filtered_tasks = [task for task in self.tasks if task.status == "Completed"]
+        
+        self.refresh_task_list()
+    
+    def clear_form(self):
+        """Clear the form"""
+        self.task_name_entry.delete(0, tk.END)
+        self.priority_var.set("Low")
+        self.category_var.set("Personal")
+        self.due_date_entry.set_date(datetime.now())
     
     def destroy(self):
-        """Destroy window"""
+        """Destroy the task manager window"""
         for widget in self.parent.winfo_children():
             widget.destroy()
