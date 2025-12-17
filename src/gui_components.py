@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 from datetime import datetime
 from tkcalendar import DateEntry
 from storage import Task
@@ -133,7 +133,7 @@ class LoginWindow:
 
 class TaskManagerWindow:
     """
-    Day 6: Task Manager with Add Task (with due dates) and View Tasks with Status
+    Complete CRUD operations: Create, Read, Update, Delete
     """
     def __init__(self, parent, username, storage, colors, on_logout):
         self.parent = parent
@@ -144,6 +144,7 @@ class TaskManagerWindow:
         self.tasks = []
         self.filtered_tasks = []
         self.current_filter = "All"
+        self.selected_task_index = None
         
         # Load tasks
         self.load_tasks()
@@ -155,7 +156,7 @@ class TaskManagerWindow:
         self.refresh_task_list()
     
     def create_ui(self):
-        """Create the UI for Day 6"""
+        """Create the UI for Day 7"""
         # Main container
         main_frame = tk.Frame(self.parent, bg=self.colors['light'])
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -218,7 +219,7 @@ class TaskManagerWindow:
         logout_btn.pack(side=tk.RIGHT, padx=20, pady=20)
     
     def create_task_form(self, parent):
-        """Create task input form with due date picker"""
+        """Create task input form"""
         form_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
         form_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 5))
         form_frame.config(width=300)
@@ -267,7 +268,7 @@ class TaskManagerWindow:
             )
             rb.pack(side=tk.LEFT, padx=5)
         
-        # Due Date (NEW for Day 6!)
+        # Due Date
         tk.Label(
             form_frame, 
             text="Due Date:", 
@@ -302,9 +303,13 @@ class TaskManagerWindow:
         )
         category_combo.pack(fill=tk.X, padx=15, pady=(0, 20), ipady=5)
         
+        # Buttons
+        button_frame = tk.Frame(form_frame, bg=self.colors['white'])
+        button_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
+        
         # Add button
         add_btn = tk.Button(
-            form_frame,
+            button_frame,
             text="➕ Add Task",
             font=("Helvetica", 10, "bold"),
             bg=self.colors['success'],
@@ -313,10 +318,36 @@ class TaskManagerWindow:
             cursor="hand2",
             command=self.add_task
         )
-        add_btn.pack(fill=tk.X, padx=15, pady=(0, 15), ipady=8)
+        add_btn.pack(fill=tk.X, pady=(0, 5), ipady=8)
+        
+        # Update button (NEW for Day 7!)
+        update_btn = tk.Button(
+            button_frame,
+            text="💾 Update Task",
+            font=("Helvetica", 10, "bold"),
+            bg=self.colors['warning'],
+            fg=self.colors['white'],
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=self.update_task
+        )
+        update_btn.pack(fill=tk.X, pady=(0, 5), ipady=8)
+        
+        # Clear button
+        clear_btn = tk.Button(
+            button_frame,
+            text="🔄 Clear Form",
+            font=("Helvetica", 10, "bold"),
+            bg=self.colors['dark'],
+            fg=self.colors['white'],
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=self.clear_form
+        )
+        clear_btn.pack(fill=tk.X, ipady=8)
     
     def create_task_list(self, parent):
-        """Create task list panel with status display"""
+        """Create task list panel"""
         list_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
         list_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
@@ -332,7 +363,7 @@ class TaskManagerWindow:
             fg=self.colors['dark']
         ).pack(side=tk.LEFT)
         
-        # Filter buttons (NEW for Day 6 - Show tasks by status!)
+        # Filter buttons
         filter_frame = tk.Frame(header_frame, bg=self.colors['white'])
         filter_frame.pack(side=tk.RIGHT)
         
@@ -384,11 +415,31 @@ class TaskManagerWindow:
         
         self.task_tree.pack(fill=tk.BOTH, expand=True)
         
-        # Configure row colors for status
+        # Configure row colors
         self.task_tree.tag_configure('completed', background='#d5f4e6')
         self.task_tree.tag_configure('pending', background='#ffffff')
         self.task_tree.tag_configure('high', foreground='#e74c3c')
         self.task_tree.tag_configure('medium', foreground='#f39c12')
+        
+        # Bind selection event (NEW for Day 7!)
+        self.task_tree.bind('<<TreeviewSelect>>', self.on_task_select)
+        
+        # Action buttons (NEW for Day 7!)
+        action_frame = tk.Frame(list_frame, bg=self.colors['white'])
+        action_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
+        
+        # Delete button
+        delete_btn = tk.Button(
+            action_frame,
+            text="🗑️ Delete Task",
+            font=("Helvetica", 10, "bold"),
+            bg=self.colors['danger'],
+            fg=self.colors['white'],
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=self.delete_task
+        )
+        delete_btn.pack(side=tk.LEFT, padx=(0, 5), ipady=8, ipadx=10)
     
     def create_statistics(self, parent):
         """Create statistics panel"""
@@ -435,7 +486,7 @@ class TaskManagerWindow:
         self.storage.save_tasks(self.username, task_dicts)
     
     def add_task(self):
-        """Add a new task with all details"""
+        """Add a new task"""
         try:
             name = self.task_name_entry.get().strip()
             if not name:
@@ -454,6 +505,83 @@ class TaskManagerWindow:
             messagebox.showinfo("Success", "Task added successfully!")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to add task: {str(e)}")
+    
+    def update_task(self):
+        """Update selected task """
+        selection = self.task_tree.selection()
+        if not selection:
+            messagebox.showerror("Error", "Please select a task to update")
+            return
+        
+        name = self.task_name_entry.get().strip()
+        if not name:
+            messagebox.showerror("Error", "Please enter a task name")
+            return
+        
+        try:
+            # Get selected task index
+            item = selection[0]
+            index = self.task_tree.index(item)
+            
+            # Find task in filtered list
+            task = self.filtered_tasks[index]
+            
+            # Update task properties
+            task.name = name
+            task.priority = self.priority_var.get()
+            task.due_date = str(self.due_date_entry.get_date())
+            task.category = self.category_var.get()
+            
+            self.save_tasks()
+            self.refresh_task_list()
+            self.clear_form()
+            messagebox.showinfo("Success", "Task updated successfully!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to update task: {str(e)}")
+    
+    def delete_task(self):
+        """Delete selected task """
+        selection = self.task_tree.selection()
+        if not selection:
+            messagebox.showerror("Error", "Please select a task to delete")
+            return
+        
+        # Confirmation dialog
+        if messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this task?"):
+            try:
+                item = selection[0]
+                index = self.task_tree.index(item)
+                task = self.filtered_tasks[index]
+                
+                # Remove from main task list
+                self.tasks.remove(task)
+                self.save_tasks()
+                self.apply_filter(self.current_filter)
+                self.clear_form()
+                messagebox.showinfo("Success", "Task deleted successfully!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete task: {str(e)}")
+    
+    def on_task_select(self, event):
+        """Handle task selection """
+        selection = self.task_tree.selection()
+        if selection:
+            item = selection[0]
+            index = self.task_tree.index(item)
+            task = self.filtered_tasks[index]
+            
+            # Populate form with selected task data
+            self.task_name_entry.delete(0, tk.END)
+            self.task_name_entry.insert(0, task.name)
+            self.priority_var.set(task.priority)
+            self.category_var.set(task.category)
+            
+            if task.due_date:
+                try:
+                    date_obj = datetime.strptime(task.due_date, '%Y-%m-%d')
+                    self.due_date_entry.set_date(date_obj)
+                except:
+                    pass
     
     def refresh_task_list(self):
         """Refresh the task list display"""
