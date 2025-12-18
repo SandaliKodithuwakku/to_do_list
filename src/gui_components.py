@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 from datetime import datetime
 from tkcalendar import DateEntry
 from storage import Task
@@ -133,7 +133,7 @@ class LoginWindow:
 
 class TaskManagerWindow:
     """
-    Complete CRUD operations: Create, Read, Update, Delete
+    Complete CRUD operations + Mark as Completed
     """
     def __init__(self, parent, username, storage, colors, on_logout):
         self.parent = parent
@@ -156,7 +156,7 @@ class TaskManagerWindow:
         self.refresh_task_list()
     
     def create_ui(self):
-        """Create the UI for Day 7"""
+        """Create the UI"""
         # Main container
         main_frame = tk.Frame(self.parent, bg=self.colors['light'])
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -320,7 +320,7 @@ class TaskManagerWindow:
         )
         add_btn.pack(fill=tk.X, pady=(0, 5), ipady=8)
         
-        # Update button (NEW for Day 7!)
+        # Update button
         update_btn = tk.Button(
             button_frame,
             text="💾 Update Task",
@@ -421,12 +421,25 @@ class TaskManagerWindow:
         self.task_tree.tag_configure('high', foreground='#e74c3c')
         self.task_tree.tag_configure('medium', foreground='#f39c12')
         
-        # Bind selection event (NEW for Day 7!)
+        # Bind selection event
         self.task_tree.bind('<<TreeviewSelect>>', self.on_task_select)
         
-        # Action buttons (NEW for Day 7!)
+        # Action buttons
         action_frame = tk.Frame(list_frame, bg=self.colors['white'])
         action_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
+        
+        # Mark Complete button
+        complete_btn = tk.Button(
+            action_frame,
+            text="✓ Mark Complete",
+            font=("Helvetica", 10, "bold"),
+            bg=self.colors['success'],
+            fg=self.colors['white'],
+            relief=tk.FLAT,
+            cursor="hand2",
+            command=self.mark_complete
+        )
+        complete_btn.pack(side=tk.LEFT, padx=(0, 5), ipady=8, ipadx=10)
         
         # Delete button
         delete_btn = tk.Button(
@@ -439,7 +452,7 @@ class TaskManagerWindow:
             cursor="hand2",
             command=self.delete_task
         )
-        delete_btn.pack(side=tk.LEFT, padx=(0, 5), ipady=8, ipadx=10)
+        delete_btn.pack(side=tk.LEFT, padx=5, ipady=8, ipadx=10)
     
     def create_statistics(self, parent):
         """Create statistics panel"""
@@ -507,7 +520,7 @@ class TaskManagerWindow:
             messagebox.showerror("Error", f"Failed to add task: {str(e)}")
     
     def update_task(self):
-        """Update selected task """
+        """Update selected task"""
         selection = self.task_tree.selection()
         if not selection:
             messagebox.showerror("Error", "Please select a task to update")
@@ -540,7 +553,7 @@ class TaskManagerWindow:
             messagebox.showerror("Error", f"Failed to update task: {str(e)}")
     
     def delete_task(self):
-        """Delete selected task """
+        """Delete selected task"""
         selection = self.task_tree.selection()
         if not selection:
             messagebox.showerror("Error", "Please select a task to delete")
@@ -562,8 +575,38 @@ class TaskManagerWindow:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to delete task: {str(e)}")
     
+    def mark_complete(self):
+        """Mark selected task as completed (NEW for Day 8!)"""
+        selection = self.task_tree.selection()
+        if not selection:
+            messagebox.showerror("Error", "Please select a task to mark as complete")
+            return
+        
+        try:
+            item = selection[0]
+            index = self.task_tree.index(item)
+            task = self.filtered_tasks[index]
+            
+            # Check if already completed
+            if task.status == "Completed":
+                messagebox.showinfo("Info", "Task is already marked as completed")
+                return
+            
+            # Update status to Completed
+            task.status = "Completed"
+            
+            # Save to JSON
+            self.save_tasks()
+            
+            # Refresh display
+            self.refresh_task_list()
+            
+            messagebox.showinfo("Success", "Task marked as completed!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to mark task as complete: {str(e)}")
+    
     def on_task_select(self, event):
-        """Handle task selection """
+        """Handle task selection"""
         selection = self.task_tree.selection()
         if selection:
             item = selection[0]
