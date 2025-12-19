@@ -133,7 +133,7 @@ class LoginWindow:
 
 class TaskManagerWindow:
     """
-    Complete CRUD operations + Mark as Completed
+    Complete Task Manager with all features connected and polished UI
     """
     def __init__(self, parent, username, storage, colors, on_logout):
         self.parent = parent
@@ -145,6 +145,7 @@ class TaskManagerWindow:
         self.filtered_tasks = []
         self.current_filter = "All"
         self.selected_task_index = None
+        self.filter_buttons = {}
         
         # Load tasks
         self.load_tasks()
@@ -156,7 +157,7 @@ class TaskManagerWindow:
         self.refresh_task_list()
     
     def create_ui(self):
-        """Create the UI"""
+        """Create the complete UI"""
         # Main container
         main_frame = tk.Frame(self.parent, bg=self.colors['light'])
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -178,7 +179,7 @@ class TaskManagerWindow:
         self.create_statistics(main_frame)
     
     def create_header(self, parent):
-        """Create header"""
+        """Create header with improved styling"""
         header = tk.Frame(parent, bg=self.colors['primary'], height=80)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
@@ -212,6 +213,8 @@ class TaskManagerWindow:
             font=("Helvetica", 10, "bold"),
             bg=self.colors['danger'],
             fg=self.colors['white'],
+            activebackground='#c0392b',
+            activeforeground=self.colors['white'],
             relief=tk.FLAT,
             cursor="hand2",
             command=self.on_logout
@@ -219,9 +222,9 @@ class TaskManagerWindow:
         logout_btn.pack(side=tk.RIGHT, padx=20, pady=20)
     
     def create_task_form(self, parent):
-        """Create task input form"""
+        """Create improved task input form"""
         form_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
-        form_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 5))
+        form_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=(0, 5), ipadx=10)
         form_frame.config(width=300)
         
         # Form title
@@ -257,14 +260,16 @@ class TaskManagerWindow:
         priority_frame = tk.Frame(form_frame, bg=self.colors['white'])
         priority_frame.pack(fill=tk.X, padx=15, pady=(0, 10))
         
-        for priority in ["Low", "Medium", "High"]:
+        priorities = [("Low", "Low"), ("Medium", "Medium"), ("High", "High")]
+        for text, value in priorities:
             rb = tk.Radiobutton(
                 priority_frame,
-                text=priority,
+                text=text,
                 variable=self.priority_var,
-                value=priority,
+                value=value,
                 bg=self.colors['white'],
-                font=("Helvetica", 9)
+                font=("Helvetica", 9),
+                activebackground=self.colors['white']
             )
             rb.pack(side=tk.LEFT, padx=5)
         
@@ -303,7 +308,7 @@ class TaskManagerWindow:
         )
         category_combo.pack(fill=tk.X, padx=15, pady=(0, 20), ipady=5)
         
-        # Buttons
+        # Buttons with improved styling
         button_frame = tk.Frame(form_frame, bg=self.colors['white'])
         button_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
         
@@ -314,6 +319,7 @@ class TaskManagerWindow:
             font=("Helvetica", 10, "bold"),
             bg=self.colors['success'],
             fg=self.colors['white'],
+            activebackground='#229954',
             relief=tk.FLAT,
             cursor="hand2",
             command=self.add_task
@@ -327,6 +333,7 @@ class TaskManagerWindow:
             font=("Helvetica", 10, "bold"),
             bg=self.colors['warning'],
             fg=self.colors['white'],
+            activebackground='#e67e22',
             relief=tk.FLAT,
             cursor="hand2",
             command=self.update_task
@@ -340,6 +347,7 @@ class TaskManagerWindow:
             font=("Helvetica", 10, "bold"),
             bg=self.colors['dark'],
             fg=self.colors['white'],
+            activebackground='#2c3e50',
             relief=tk.FLAT,
             cursor="hand2",
             command=self.clear_form
@@ -347,7 +355,7 @@ class TaskManagerWindow:
         clear_btn.pack(fill=tk.X, ipady=8)
     
     def create_task_list(self, parent):
-        """Create task list panel"""
+        """Create improved task list panel"""
         list_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.RAISED, borderwidth=1)
         list_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
         
@@ -363,7 +371,7 @@ class TaskManagerWindow:
             fg=self.colors['dark']
         ).pack(side=tk.LEFT)
         
-        # Filter buttons
+        # Improved filter buttons
         filter_frame = tk.Frame(header_frame, bg=self.colors['white'])
         filter_frame.pack(side=tk.RIGHT)
         
@@ -372,33 +380,41 @@ class TaskManagerWindow:
             btn = tk.Button(
                 filter_frame,
                 text=filter_name,
-                font=("Helvetica", 9),
-                bg=self.colors['light'] if filter_name != "All" else self.colors['secondary'],
-                fg=self.colors['dark'] if filter_name != "All" else self.colors['white'],
+                font=("Helvetica", 9, "bold"),
+                bg=self.colors['secondary'] if filter_name == "All" else self.colors['light'],
+                fg=self.colors['white'] if filter_name == "All" else self.colors['dark'],
                 relief=tk.FLAT,
                 cursor="hand2",
+                padx=10,
+                pady=5,
                 command=lambda f=filter_name: self.apply_filter(f)
             )
             btn.pack(side=tk.LEFT, padx=2)
+            self.filter_buttons[filter_name] = btn
         
         # Treeview for tasks
         tree_frame = tk.Frame(list_frame, bg=self.colors['white'])
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 10))
         
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical")
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Scrollbars
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
+        hsb.pack(side=tk.BOTTOM, fill=tk.X)
         
         # Treeview
         self.task_tree = ttk.Treeview(
             tree_frame,
             columns=("Name", "Priority", "Due Date", "Category", "Status"),
             show="headings",
-            yscrollcommand=scrollbar.set,
-            height=12
+            yscrollcommand=vsb.set,
+            xscrollcommand=hsb.set,
+            height=15
         )
         
-        scrollbar.config(command=self.task_tree.yview)
+        vsb.config(command=self.task_tree.yview)
+        hsb.config(command=self.task_tree.xview)
         
         # Define columns
         self.task_tree.heading("Name", text="Task Name")
@@ -407,7 +423,7 @@ class TaskManagerWindow:
         self.task_tree.heading("Category", text="Category")
         self.task_tree.heading("Status", text="Status")
         
-        self.task_tree.column("Name", width=200)
+        self.task_tree.column("Name", width=250)
         self.task_tree.column("Priority", width=80)
         self.task_tree.column("Due Date", width=100)
         self.task_tree.column("Category", width=100)
@@ -417,14 +433,13 @@ class TaskManagerWindow:
         
         # Configure row colors
         self.task_tree.tag_configure('completed', background='#d5f4e6')
-        self.task_tree.tag_configure('pending', background='#ffffff')
         self.task_tree.tag_configure('high', foreground='#e74c3c')
         self.task_tree.tag_configure('medium', foreground='#f39c12')
         
         # Bind selection event
         self.task_tree.bind('<<TreeviewSelect>>', self.on_task_select)
         
-        # Action buttons
+        # Action buttons with improved layout
         action_frame = tk.Frame(list_frame, bg=self.colors['white'])
         action_frame.pack(fill=tk.X, padx=15, pady=(0, 15))
         
@@ -435,6 +450,7 @@ class TaskManagerWindow:
             font=("Helvetica", 10, "bold"),
             bg=self.colors['success'],
             fg=self.colors['white'],
+            activebackground='#229954',
             relief=tk.FLAT,
             cursor="hand2",
             command=self.mark_complete
@@ -448,6 +464,7 @@ class TaskManagerWindow:
             font=("Helvetica", 10, "bold"),
             bg=self.colors['danger'],
             fg=self.colors['white'],
+            activebackground='#c0392b',
             relief=tk.FLAT,
             cursor="hand2",
             command=self.delete_task
@@ -455,7 +472,7 @@ class TaskManagerWindow:
         delete_btn.pack(side=tk.LEFT, padx=5, ipady=8, ipadx=10)
     
     def create_statistics(self, parent):
-        """Create statistics panel"""
+        """Create improved statistics panel"""
         stats_frame = tk.Frame(parent, bg=self.colors['dark'], height=60)
         stats_frame.pack(fill=tk.X, side=tk.BOTTOM)
         stats_frame.pack_propagate(False)
@@ -532,14 +549,10 @@ class TaskManagerWindow:
             return
         
         try:
-            # Get selected task index
             item = selection[0]
             index = self.task_tree.index(item)
-            
-            # Find task in filtered list
             task = self.filtered_tasks[index]
             
-            # Update task properties
             task.name = name
             task.priority = self.priority_var.get()
             task.due_date = str(self.due_date_entry.get_date())
@@ -559,14 +572,12 @@ class TaskManagerWindow:
             messagebox.showerror("Error", "Please select a task to delete")
             return
         
-        # Confirmation dialog
         if messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this task?"):
             try:
                 item = selection[0]
                 index = self.task_tree.index(item)
                 task = self.filtered_tasks[index]
                 
-                # Remove from main task list
                 self.tasks.remove(task)
                 self.save_tasks()
                 self.apply_filter(self.current_filter)
@@ -576,7 +587,7 @@ class TaskManagerWindow:
                 messagebox.showerror("Error", f"Failed to delete task: {str(e)}")
     
     def mark_complete(self):
-        """Mark selected task as completed (NEW for Day 8!)"""
+        """Mark selected task as completed"""
         selection = self.task_tree.selection()
         if not selection:
             messagebox.showerror("Error", "Please select a task to mark as complete")
@@ -587,20 +598,13 @@ class TaskManagerWindow:
             index = self.task_tree.index(item)
             task = self.filtered_tasks[index]
             
-            # Check if already completed
             if task.status == "Completed":
                 messagebox.showinfo("Info", "Task is already marked as completed")
                 return
             
-            # Update status to Completed
             task.status = "Completed"
-            
-            # Save to JSON
             self.save_tasks()
-            
-            # Refresh display
             self.refresh_task_list()
-            
             messagebox.showinfo("Success", "Task marked as completed!")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to mark task as complete: {str(e)}")
@@ -613,7 +617,6 @@ class TaskManagerWindow:
             index = self.task_tree.index(item)
             task = self.filtered_tasks[index]
             
-            # Populate form with selected task data
             self.task_name_entry.delete(0, tk.END)
             self.task_name_entry.insert(0, task.name)
             self.priority_var.set(task.priority)
@@ -628,21 +631,13 @@ class TaskManagerWindow:
     
     def refresh_task_list(self):
         """Refresh the task list display"""
-        # Clear tree
         for item in self.task_tree.get_children():
             self.task_tree.delete(item)
         
-        # Add filtered tasks
         for task in self.filtered_tasks:
             tags = []
-            
-            # Status tag
             if task.status == "Completed":
                 tags.append('completed')
-            else:
-                tags.append('pending')
-            
-            # Priority tags
             if task.priority == "High":
                 tags.append('high')
             elif task.priority == "Medium":
@@ -655,7 +650,6 @@ class TaskManagerWindow:
                 tags=tags
             )
         
-        # Update statistics
         self.update_statistics()
     
     def update_statistics(self):
@@ -669,8 +663,15 @@ class TaskManagerWindow:
         self.completed_label.config(text=f"Completed: {completed}")
     
     def apply_filter(self, filter_name):
-        """Apply filter to task list"""
+        """Apply filter to task list with button highlighting"""
         self.current_filter = filter_name
+        
+        # Update filter button colors
+        for name, btn in self.filter_buttons.items():
+            if name == filter_name:
+                btn.config(bg=self.colors['secondary'], fg=self.colors['white'])
+            else:
+                btn.config(bg=self.colors['light'], fg=self.colors['dark'])
         
         if filter_name == "All":
             self.filtered_tasks = self.tasks.copy()
