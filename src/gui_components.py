@@ -523,6 +523,11 @@ class TaskManagerWindow:
                 messagebox.showerror("Error", "Please enter a task name")
                 return
             
+            # Check for duplicate task names (case-insensitive)
+            if any(task.name.lower() == name.lower() for task in self.tasks):
+                messagebox.showerror("Error", "A task with this name already exists")
+                return
+            
             priority = self.priority_var.get()
             due_date = str(self.due_date_entry.get_date())
             category = self.category_var.get()
@@ -552,6 +557,11 @@ class TaskManagerWindow:
             item = selection[0]
             index = self.task_tree.index(item)
             task = self.filtered_tasks[index]
+            
+            # Check for duplicate task names (excluding current task)
+            if any(t.name.lower() == name.lower() and t.id != task.id for t in self.tasks):
+                messagebox.showerror("Error", "A task with this name already exists")
+                return
             
             task.name = name
             task.priority = self.priority_var.get()
